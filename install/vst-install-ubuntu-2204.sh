@@ -725,26 +725,33 @@ vesta_software=$(echo "$software" | grep -o 'vesta[^ ]*')
 mkdir -p /tmp/vesta-debs
 cd /tmp/vesta-debs
 
-# First, get the package list from the repository
-wget -q "http://$RHOST/focal/dists/focal/vesta/binary-amd64/Packages" -O Packages
-if [ $? -ne 0 ]; then
-    echo "Failed to download package list"
-    check_result 1 "Failed to download VestaCP package list"
-fi
+# Define package versions
+vesta_version="0.9.8-25"
+vesta_php_version="0.9.8-4"
+vesta_nginx_version="0.9.8-2"
+vesta_ioncube_version="0.9.8-2"
+vesta_softaculous_version="0.9.8-2"
 
+# Download and install each package
 for package in $vesta_software; do
     echo "Downloading and installing $package..."
-    
-    # Extract the exact filename from the Packages file
-    filename=$(grep -A 10 "^Package: $package$" Packages | grep "^Filename:" | cut -d' ' -f2)
-    
-    if [ -z "$filename" ]; then
-        echo "Warning: Could not find $package in repository"
-        continue
-    fi
-    
-    # Download the package
-    wget -q "http://$RHOST/$filename" -O "$package.deb"
+    case "$package" in
+        "vesta")
+            wget -q "http://vestacp.com/pub/debs/${package}_${vesta_version}_amd64.deb" -O "$package.deb"
+            ;;
+        "vesta-php")
+            wget -q "http://vestacp.com/pub/debs/${package}_${vesta_php_version}_amd64.deb" -O "$package.deb"
+            ;;
+        "vesta-nginx")
+            wget -q "http://vestacp.com/pub/debs/${package}_${vesta_nginx_version}_amd64.deb" -O "$package.deb"
+            ;;
+        "vesta-ioncube")
+            wget -q "http://vestacp.com/pub/debs/${package}_${vesta_ioncube_version}_amd64.deb" -O "$package.deb"
+            ;;
+        "vesta-softaculous")
+            wget -q "http://vestacp.com/pub/debs/${package}_${vesta_softaculous_version}_amd64.deb" -O "$package.deb"
+            ;;
+    esac
     
     if [ $? -eq 0 ] && [ -f "$package.deb" ] && [ -s "$package.deb" ]; then
         # Install the package
@@ -757,6 +764,14 @@ for package in $vesta_software; do
         fi
     else
         echo "Warning: Could not download $package"
+        # Try alternative URL
+        wget -q "http://c.vestacp.com/0.9.8/debian/$package.deb" -O "$package.deb"
+        if [ $? -eq 0 ] && [ -f "$package.deb" ] && [ -s "$package.deb" ]; then
+            dpkg -i "$package.deb" || {
+                apt-get -f -y install
+                dpkg -i "$package.deb"
+            }
+        fi
     fi
 done
 
@@ -1027,34 +1042,85 @@ fi
 #----------------------------------------------------------#
 
 if [ "$apache" = 'yes'  ]; then
-    if [ -f "$vestacp/apache2/apache2.conf" ]; then
-        cp -f $vestacp/apache2/apache2.conf /etc/apache2/
+    # Create basic Apache configuration if not available
+    if [ ! -f "/etc/apache2/apache2.conf" ]; then
+        cat > /etc/apache2/apache2.conf <<EOF
+# Basic Apache configuration for Ubuntu 22.04/24.04
+ServerRoot "/etc/apache2"
+ServerName localhost
+User www-data
+Group www-data
+ErrorLog /var/log/apache2/error.log
+LogLevel warn
+LogFormat "%v:%p %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" vhost_combined
+LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" combined
+LogFormat "%h %l %u %t \"%r\" %>s %O" common
+LogFormat "%{Referer}i -> %U" referer
+LogFormat "%{User-agent}i" agent
+IncludeOptional mods-enabled/*.load
+IncludeOptional mods-enabled/*.conf
+IncludeOptional conf-enabled/*.conf
+IncludeOptional sites-enabled/*.conf
+<Directory />
+    Options FollowSymLinks
+    AllowOverride None
+    Require all denied
+</Directory>
+<Directory /var/www/>
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>
+AccessFileName .htaccess
+<FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
+HostnameLookups Off
+EOF
     fi
-    if [ -f "$vestacp/apache2/status.conf" ]; then
-        cp -f $vestacp/apache2/status.conf /etc/apache2/mods-enabled/
-    fi
-    if [ -f "$vestacp/logrotate/apache2" ]; then
-        cp -f $vestacp/logrotate/apache2 /etc/logrotate.d/
-    fi
+
+    # Enable required modules
     a2enmod rewrite
     a2enmod suexec
     a2enmod ssl
     a2enmod actions
-    # ruid2 module is not available in Ubuntu 22.04/24.04
+    a2enmod proxy_fcgi
+    a2enmod alias
+
+    # Create directories and set permissions
     mkdir -p /etc/apache2/conf.d
-    echo > /etc/apache2/conf.d/vesta.conf
-    echo "# Server control panel by VESTA" > /etc/apache2/sites-available/default
-    echo "# Server control panel by VESTA" > /etc/apache2/sites-available/default-ssl
-    echo "# Server control panel by VESTA" > /etc/apache2/ports.conf
     mkdir -p /etc/apache2/suexec
-    echo -e "/home\npublic_html/cgi-bin" > /etc/apache2/suexec/www-data
-    touch /var/log/apache2/access.log /var/log/apache2/error.log
     mkdir -p /var/log/apache2/domains
+
+    # Create basic configuration files
+    echo > /etc/apache2/conf.d/vesta.conf
+    echo "# Server control panel by VESTA" > /etc/apache2/sites-available/000-default.conf
+    echo "# Server control panel by VESTA" > /etc/apache2/sites-available/default-ssl.conf
+
+    # Configure ports
+    cat > /etc/apache2/ports.conf <<EOF
+Listen 80
+<IfModule ssl_module>
+    Listen 443
+</IfModule>
+EOF
+
+    # Configure suexec
+    echo -e "/home\npublic_html/cgi-bin" > /etc/apache2/suexec/www-data
+
+    # Set up logs
+    touch /var/log/apache2/access.log /var/log/apache2/error.log
     chmod a+x /var/log/apache2
     chmod 640 /var/log/apache2/access.log /var/log/apache2/error.log
     chmod 751 /var/log/apache2/domains
+    chown -R www-data:www-data /var/log/apache2
+
+    # Enable default site
+    a2ensite 000-default
+
+    # Start Apache
     systemctl enable apache2
-    systemctl start apache2
+    systemctl restart apache2
     check_result $? "apache2 start failed"
 else
     systemctl disable apache2 >/dev/null 2>&1
