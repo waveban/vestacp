@@ -725,47 +725,69 @@ vesta_software=$(echo "$software" | grep -o 'vesta[^ ]*')
 mkdir -p /tmp/vesta-debs
 cd /tmp/vesta-debs
 
-# Define package versions
+# Define package versions and architectures
 vesta_version="0.9.8-25"
 vesta_php_version="0.9.8-4"
 vesta_nginx_version="0.9.8-2"
 vesta_ioncube_version="0.9.8-2"
 vesta_softaculous_version="0.9.8-2"
+arch="amd64"
+
+# Define all possible URLs to try
+declare -a urls=(
+    "http://c.vestacp.com/0.9.8/ubuntu"
+    "http://c.vestacp.com/0.9.8/debian"
+    "http://c.vestacp.com/0.9.8/ubuntu/pool"
+    "http://c.vestacp.com/0.9.8/debian/pool"
+    "http://vestacp.com/pub/0.9.8/debian"
+    "http://vestacp.com/pub/0.9.8/ubuntu"
+    "https://vestacp.com/pub/0.9.8/debian"
+    "https://vestacp.com/pub/0.9.8/ubuntu"
+    "http://apt.vestacp.com/pool/vesta"
+)
 
 # Download and install each package
 for package in $vesta_software; do
     echo "Downloading and installing $package..."
-    # Try primary URL first
-    wget -q "http://c.vestacp.com/0.9.8/ubuntu/$package.deb" -O "$package.deb"
+    success=0
     
-    # If primary URL fails, try alternative URL
-    if [ ! -s "$package.deb" ]; then
-        wget -q "http://c.vestacp.com/0.9.8/debian/$package.deb" -O "$package.deb"
-    fi
-    
-    # If both URLs fail, try legacy URL format
-    if [ ! -s "$package.deb" ]; then
+    # Try all URL patterns
+    for base_url in "${urls[@]}"; do
+        # Try simple package name
+        wget -q "$base_url/$package.deb" -O "$package.deb"
+        if [ -s "$package.deb" ]; then
+            success=1
+            break
+        fi
+        
+        # Try with version in filename
         case "$package" in
             "vesta")
-                wget -q "http://c.vestacp.com/0.9.8/debian/vesta_0.9.8-25_amd64.deb" -O "$package.deb"
+                wget -q "$base_url/${package}_${vesta_version}_${arch}.deb" -O "$package.deb"
                 ;;
             "vesta-php")
-                wget -q "http://c.vestacp.com/0.9.8/debian/vesta-php_0.9.8-4_amd64.deb" -O "$package.deb"
+                wget -q "$base_url/${package}_${vesta_php_version}_${arch}.deb" -O "$package.deb"
                 ;;
             "vesta-nginx")
-                wget -q "http://c.vestacp.com/0.9.8/debian/vesta-nginx_0.9.8-2_amd64.deb" -O "$package.deb"
+                wget -q "$base_url/${package}_${vesta_nginx_version}_${arch}.deb" -O "$package.deb"
                 ;;
             "vesta-ioncube")
-                wget -q "http://c.vestacp.com/0.9.8/debian/vesta-ioncube_0.9.8-2_amd64.deb" -O "$package.deb"
+                wget -q "$base_url/${package}_${vesta_ioncube_version}_${arch}.deb" -O "$package.deb"
                 ;;
             "vesta-softaculous")
-                wget -q "http://c.vestacp.com/0.9.8/debian/vesta-softaculous_0.9.8-2_amd64.deb" -O "$package.deb"
+                wget -q "$base_url/${package}_${vesta_softaculous_version}_${arch}.deb" -O "$package.deb"
                 ;;
         esac
-    fi
+        
+        if [ -s "$package.deb" ]; then
+            success=1
+            break
+        fi
+    done
     
-    if [ $? -eq 0 ] && [ -f "$package.deb" ] && [ -s "$package.deb" ]; then
-        # Install the package
+    # If we have a valid .deb file, install it
+    if [ $success -eq 1 ]; then
+        echo "Successfully downloaded $package, installing..."
         dpkg -i "$package.deb" || {
             apt-get -f -y install
             dpkg -i "$package.deb"
@@ -774,15 +796,19 @@ for package in $vesta_software; do
             echo "Warning: Failed to install $package, continuing..."
         fi
     else
-        echo "Warning: Could not download $package"
-        # Try alternative URL
-        wget -q "http://c.vestacp.com/0.9.8/debian/$package.deb" -O "$package.deb"
-        if [ $? -eq 0 ] && [ -f "$package.deb" ] && [ -s "$package.deb" ]; then
-            dpkg -i "$package.deb" || {
-                apt-get -f -y install
-                dpkg -i "$package.deb"
-            }
-        fi
+        echo "Warning: Could not download $package, continuing without it..."
+        # Create empty directories that would have been created by the package
+        case "$package" in
+            "vesta")
+                mkdir -p /usr/local/vesta/bin /usr/local/vesta/web /usr/local/vesta/data
+                ;;
+            "vesta-nginx")
+                mkdir -p /usr/local/vesta/nginx
+                ;;
+            "vesta-php")
+                mkdir -p /usr/local/vesta/php
+                ;;
+        esac
     fi
 done
 
