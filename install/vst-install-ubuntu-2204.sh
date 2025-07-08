@@ -573,13 +573,6 @@ mv /var/lib/mysql $vst_backups/mysql/mysql_datadir > /dev/null 2>&1
 cp -r /etc/mysql/* $vst_backups/mysql > /dev/null 2>&1
 mv -f /root/.my.cnf $vst_backups/mysql > /dev/null 2>&1
 
-# Initialize MySQL if needed
-if [ ! -d "/var/lib/mysql" ]; then
-    mkdir -p /var/lib/mysql > /dev/null 2>&1
-    chown mysql:mysql /var/lib/mysql
-    mysqld --initialize-insecure
-fi
-
 # Backup Vesta
 systemctl stop vesta > /dev/null 2>&1
 cp -r $VESTA/* $vst_backups/vesta > /dev/null 2>&1
@@ -661,4 +654,15 @@ if [ "$softaculous" = 'no' ]; then
     software=$(echo "$software" | sed -e 's/vesta-softaculous//')
 fi
 if [ "$iptables" = 'no' ] || [ "$fail2ban" = 'no' ]; then
-    software=$(echo "$software" | sed -
+    software=$(echo "$software" | sed -e 's/fail2ban//')
+fi
+
+
+#----------------------------------------------------------#
+#                     Install packages                     #
+#----------------------------------------------------------#
+
+# Update system packages
+apt-get update
+
+# Disable
