@@ -522,8 +522,8 @@ echo "deb [signed-by=/usr/share/keyrings/vesta-archive-keyring.gpg] http://$RHOS
 echo "Using Ubuntu 20.04 (focal) repository for VestaCP on Ubuntu $release..."
 # Remove any existing repository configurations that might conflict
 rm -f $apt/noble* $apt/jammy*
-# Force apt to use the focal repository
-echo "APT::Default-Release \"$repo_codename\";" > /etc/apt/apt.conf.d/01default-release
+# We don't need to set APT::Default-Release since we're explicitly specifying the repository
+rm -f /etc/apt/apt.conf.d/01default-release
 
 
 #----------------------------------------------------------#
