@@ -517,6 +517,17 @@ echo "deb http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 curl -fsSL $CHOST/deb_signing.key | gpg --dearmor -o /usr/share/keyrings/vesta-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/vesta-archive-keyring.gpg] http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 
+# For Ubuntu 24.04, create a symbolic link from noble to jammy in the apt sources
+if [ "$release" = "24.04" ]; then
+    echo "Creating symbolic link from noble to jammy for VestaCP repository..."
+    # Remove any existing noble repository configuration
+    rm -f $apt/noble*
+    # Create a symbolic link from noble to jammy
+    ln -sf $apt/vesta.list $apt/vesta-noble.list
+    # Force apt to use the jammy repository for noble
+    echo "APT::Default-Release \"$repo_codename\";" > /etc/apt/apt.conf.d/01default-release
+fi
+
 
 #----------------------------------------------------------#
 #                         Backup                           #
