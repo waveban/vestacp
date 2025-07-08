@@ -1622,7 +1622,7 @@ echo "NOTIFY_ADMIN_FULL_BACKUP='$email'" >> $VESTA/conf/vesta.conf
 # Comparing hostname and ip
 
 if [ "$ssl" = 'no' ]; then
-host_ip=$(host $servername |head -n 1 |awk '{print $NF}')
+host_ip=$(host "$servername" |head -n 1 |awk '{print $NF}')
 if [ "$host_ip" = "$ip" ]; then
     ip="$servername"
 fi
@@ -1630,7 +1630,7 @@ fi
 
 if [ "$ssl" = 'yes' ]; then
 make_ssl=0
-host_ip=$(host $servername | head -n 1 | awk '{print $NF}')
+host_ip=$(host "$servername" | head -n 1 | awk '{print $NF}')
 if [ "$host_ip" != "$pub_ip" ]; then
     echo "***** PROBLEM: Hostname $servername is not pointing to your server \(IP address $ip\)"
     echo "Without pointing your hostname to your IP, LetsEncrypt SSL will not be generated for your server hostname."
@@ -1651,7 +1651,7 @@ fi
 if [ $make_ssl -eq 1 ]; then
     # Check if www is also pointing to our IP
     www_host="www.$servername"
-    www_host_ip=$(host $www_host | head -n 1 | awk '{print $NF}')
+    www_host_ip=$(host "$www_host" | head -n 1 | awk '{print $NF}')
     if [ "$www_host_ip" != "$pub_ip" ]; then
         if [ "$named" = 'yes' ]; then
             echo "=== Deleting www to server hostname"
@@ -1677,14 +1677,14 @@ echo "UPDATE_HOSTNAME_SSL='yes'" >> $VESTA/conf/vesta.conf
 fi
 
 # Sending notification to admin email
-echo -e "Congratulations, you have just successfully installed \
+echo -e "Congratulations, you have just successfully installed \\
 Vesta Control Panel
 
     https://$ip:$port
     username: admin
     password: $vpass
 
-We hope that you enjoy your installation of Vesta. Please \
+We hope that you enjoy your installation of Vesta. Please \\
 feel free to contact us anytime if you have any questions.
 Thank you.
 
