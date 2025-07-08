@@ -511,6 +511,31 @@ apt=/etc/apt/sources.list.d
 curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/mainline/ubuntu/ $codename nginx" > $apt/nginx.list
 
+# Add appropriate Ubuntu repositories based on version
+if [ "$release" = "22.04" ]; then
+    # Backup the current sources list
+    cp /etc/apt/sources.list /etc/apt/sources.list.backup
+    
+    # Add Ubuntu 22.04 (Jammy) repositories
+    echo "Adding Ubuntu 22.04 (Jammy) repositories..."
+    echo "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" | tee -a /etc/apt/sources.list
+    echo "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" | tee -a /etc/apt/sources.list
+    echo "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" | tee -a /etc/apt/sources.list
+elif [ "$release" = "24.04" ]; then
+    # Backup the current sources list
+    cp /etc/apt/sources.list /etc/apt/sources.list.backup
+    
+    # Add Ubuntu 24.04 (Noble) repositories
+    echo "Adding Ubuntu 24.04 (Noble) repositories..."
+    echo "deb http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" | tee -a /etc/apt/sources.list
+    echo "deb http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" | tee -a /etc/apt/sources.list
+    echo "deb http://archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse" | tee -a /etc/apt/sources.list
+    
+    # Also add Ubuntu 22.04 (Jammy) repositories for compatibility
+    echo "Adding Ubuntu 22.04 (Jammy) repositories for compatibility..."
+    echo "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" | tee -a /etc/apt/sources.list
+fi
+
 # Installing vesta repo
 # Use focal repo for VestaCP since there's no jammy or noble repo
 echo "Using Ubuntu 20.04 (focal) repository for VestaCP on Ubuntu $release..."
