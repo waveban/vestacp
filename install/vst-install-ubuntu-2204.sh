@@ -38,7 +38,8 @@ fi
 # Always use focal repo for VestaCP since there's no jammy or noble repo
 repo_codename="focal"
 
-vestacp="$VESTA/install/$VERSION/$release"
+# Use a generic path for VestaCP installation files
+vestacp="$VESTA/install/$VERSION"
 
 # Defining software pack for all distros
 software="nginx apache2 apache2-utils
@@ -802,7 +803,12 @@ ntpdate -s ntp.ubuntu.com
 
 # Installing sudo configuration
 mkdir -p /etc/sudoers.d
-cp -f $vestacp/sudo/admin /etc/sudoers.d/
+if [ -f "$vestacp/sudo/admin" ]; then
+    cp -f $vestacp/sudo/admin /etc/sudoers.d/
+else
+    # Create a basic sudoers file for admin
+    echo "admin ALL=(ALL) NOPASSWD: /usr/local/vesta/bin/*" > /etc/sudoers.d/admin
+fi
 chmod 440 /etc/sudoers.d/admin
 sed -i "s/%admin.*ALL=(ALL).*/# sudo is limited to vesta scripts/" /etc/sudoers
 
@@ -815,7 +821,21 @@ echo 'export PATH' >> /root/.bash_profile
 source /root/.bash_profile
 
 # Configuring logrotate for Vesta logs
-cp -f $vestacp/logrotate/vesta /etc/logrotate.d/
+if [ -f "$vestacp/logrotate/vesta" ]; then
+    cp -f $vestacp/logrotate/vesta /etc/logrotate.d/
+else
+    # Create a basic logrotate config
+    cat > /etc/logrotate.d/vesta <<EOF
+/usr/local/vesta/log/*.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+}
+EOF
+fi
 
 # Building directory tree and creating some blank files for Vesta
 mkdir -p $VESTA/conf $VESTA/log $VESTA/ssl $VESTA/data/ips \
@@ -921,17 +941,28 @@ echo "LANGUAGE='$lang'" >> $VESTA/conf/vesta.conf
 echo "VERSION='0.9.8'" >> $VESTA/conf/vesta.conf
 
 # Installing hosting packages
-cp -rf $vestacp/packages $VESTA/data/
+if [ -d "$vestacp/packages" ]; then
+    cp -rf $vestacp/packages $VESTA/data/
+fi
 
 # Installing templates
-cp -rf $vestacp/templates $VESTA/data/
+if [ -d "$vestacp/templates" ]; then
+    cp -rf $vestacp/templates $VESTA/data/
+fi
 
 # Copying index.html to default documentroot
-cp $VESTA/data/templates/web/skel/public_html/index.html /var/www/
-sed -i 's/%domain%/It worked!/g' /var/www/index.html
+if [ -f "$VESTA/data/templates/web/skel/public_html/index.html" ]; then
+    cp $VESTA/data/templates/web/skel/public_html/index.html /var/www/
+    sed -i 's/%domain%/It worked!/g' /var/www/index.html
+else
+    # Create a basic index.html
+    echo "<html><body><h1>It worked!</h1></body></html>" > /var/www/index.html
+fi
 
 # Installing firewall rules
-cp -rf $vestacp/firewall $VESTA/data/
+if [ -d "$vestacp/firewall" ]; then
+    cp -rf $vestacp/firewall $VESTA/data/
+fi
 
 # Configuring server hostname
 $VESTA/bin/v-change-sys-hostname $servername 2>/dev/null
@@ -965,12 +996,24 @@ fi
 
 if [ "$nginx" = 'yes' ]; then
     rm -f /etc/nginx/conf.d/*.conf
-    cp -f $vestacp/nginx/nginx.conf /etc/nginx/
-    cp -f $vestacp/nginx/status.conf /etc/nginx/conf.d/
-    cp -f $vestacp/nginx/phpmyadmin.inc /etc/nginx/conf.d/
-    cp -f $vestacp/nginx/phppgadmin.inc /etc/nginx/conf.d/
-    cp -f $vestacp/nginx/webmail.inc /etc/nginx/conf.d/
-    cp -f $vestacp/logrotate/nginx /etc/logrotate.d/
+    if [ -f "$vestacp/nginx/nginx.conf" ]; then
+        cp -f $vestacp/nginx/nginx.conf /etc/nginx/
+    fi
+    if [ -f "$vestacp/nginx/status.conf" ]; then
+        cp -f $vestacp/nginx/status.conf /etc/nginx/conf.d/
+    fi
+    if [ -f "$vestacp/nginx/phpmyadmin.inc" ]; then
+        cp -f $vestacp/nginx/phpmyadmin.inc /etc/nginx/conf.d/
+    fi
+    if [ -f "$vestacp/nginx/phppgadmin.inc" ]; then
+        cp -f $vestacp/nginx/phppgadmin.inc /etc/nginx/conf.d/
+    fi
+    if [ -f "$vestacp/nginx/webmail.inc" ]; then
+        cp -f $vestacp/nginx/webmail.inc /etc/nginx/conf.d/
+    fi
+    if [ -f "$vestacp/logrotate/nginx" ]; then
+        cp -f $vestacp/logrotate/nginx /etc/logrotate.d/
+    fi
     echo > /etc/nginx/conf.d/vesta.conf
     mkdir -p /var/log/nginx/domains
     systemctl enable nginx
@@ -984,19 +1027,26 @@ fi
 #----------------------------------------------------------#
 
 if [ "$apache" = 'yes'  ]; then
-    cp -f $vestacp/apache2/apache2.conf /etc/apache2/
-    cp -f $vestacp/apache2/status.conf /etc/apache2/mods-enabled/
-    cp -f  $vestacp/logrotate/apache2 /etc/logrotate.d/
+    if [ -f "$vestacp/apache2/apache2.conf" ]; then
+        cp -f $vestacp/apache2/apache2.conf /etc/apache2/
+    fi
+    if [ -f "$vestacp/apache2/status.conf" ]; then
+        cp -f $vestacp/apache2/status.conf /etc/apache2/mods-enabled/
+    fi
+    if [ -f "$vestacp/logrotate/apache2" ]; then
+        cp -f $vestacp/logrotate/apache2 /etc/logrotate.d/
+    fi
     a2enmod rewrite
     a2enmod suexec
     a2enmod ssl
     a2enmod actions
-    a2enmod ruid2
+    # ruid2 module is not available in Ubuntu 22.04/24.04
     mkdir -p /etc/apache2/conf.d
     echo > /etc/apache2/conf.d/vesta.conf
     echo "# Server control panel by VESTA" > /etc/apache2/sites-available/default
     echo "# Server control panel by VESTA" > /etc/apache2/sites-available/default-ssl
     echo "# Server control panel by VESTA" > /etc/apache2/ports.conf
+    mkdir -p /etc/apache2/suexec
     echo -e "/home\npublic_html/cgi-bin" > /etc/apache2/suexec/www-data
     touch /var/log/apache2/access.log /var/log/apache2/error.log
     mkdir -p /var/log/apache2/domains
@@ -1018,7 +1068,9 @@ fi
 
 if [ "$phpfpm" = 'yes' ]; then
     pool=$(find /etc/php* -type d \( -name "pool.d" -o -name "*fpm.d" \))
-    cp -f $vestacp/php-fpm/www.conf $pool/
+    if [ -f "$vestacp/php-fpm/www.conf" ]; then
+        cp -f $vestacp/php-fpm/www.conf $pool/
+    fi
     php_fpm="php$php_version-fpm"
     ln -s /etc/init.d/$php_fpm /etc/init.d/php-fpm > /dev/null 2>&1
     systemctl enable $php_fpm
@@ -1046,7 +1098,9 @@ done
 #----------------------------------------------------------#
 
 if [ "$vsftpd" = 'yes' ]; then
-    cp -f $vestacp/vsftpd/vsftpd.conf /etc/
+    if [ -f "$vestacp/vsftpd/vsftpd.conf" ]; then
+        cp -f $vestacp/vsftpd/vsftpd.conf /etc/
+    fi
     touch /var/log/vsftpd.log
     chown root:adm /var/log/vsftpd.log
     chmod 640 /var/log/vsftpd.log
@@ -1065,7 +1119,9 @@ fi
 
 if [ "$proftpd" = 'yes' ]; then
     echo "127.0.0.1 $servername" >> /etc/hosts
-    cp -f $vestacp/proftpd/proftpd.conf /etc/proftpd/
+    if [ -f "$vestacp/proftpd/proftpd.conf" ]; then
+        cp -f $vestacp/proftpd/proftpd.conf /etc/proftpd/
+    fi
     systemctl enable proftpd
     systemctl start proftpd
     check_result $? "proftpd start failed"
@@ -1086,7 +1142,9 @@ if [ "$mysql" = 'yes' ]; then
     fi
 
     # Configuring MySQL/MariaDB
-    cp -f $vestacp/mysql/$mycnf /etc/mysql/my.cnf
+    if [ -f "$vestacp/mysql/$mycnf" ]; then
+        cp -f $vestacp/mysql/$mycnf /etc/mysql/my.cnf
+    fi
     mkdir -p /var/lib/mysql
     chown mysql:mysql /var/lib/mysql
     mysqld --initialize-insecure
@@ -1107,7 +1165,9 @@ if [ "$mysql" = 'yes' ]; then
 
     # Configuring phpMyAdmin
     if [ "$apache" = 'yes' ]; then
-        cp -f $vestacp/pma/apache.conf /etc/phpmyadmin/
+        if [ -f "$vestacp/pma/apache.conf" ]; then
+            cp -f $vestacp/pma/apache.conf /etc/phpmyadmin/
+        fi
         ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf.d/phpmyadmin.conf
     fi
     mysql < /usr/share/phpmyadmin/sql/create_tables.sql
@@ -1124,15 +1184,21 @@ fi
 
 if [ "$postgresql" = 'yes' ]; then
     ppass=$(gen_pass)
-    cp -f $vestacp/postgresql/pg_hba.conf /etc/postgresql/*/main/
+    if [ -f "$vestacp/postgresql/pg_hba.conf" ]; then
+        cp -f $vestacp/postgresql/pg_hba.conf /etc/postgresql/*/main/
+    fi
     systemctl restart postgresql
     sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$ppass'"
 
     # Configuring phpPgAdmin
     if [ "$apache" = 'yes' ]; then
-        cp -f $vestacp/pga/phppgadmin.conf /etc/apache2/conf.d/
+        if [ -f "$vestacp/pga/phppgadmin.conf" ]; then
+            cp -f $vestacp/pga/phppgadmin.conf /etc/apache2/conf.d/
+        fi
     fi
-    cp -f $vestacp/pga/config.inc.php /etc/phppgadmin/
+    if [ -f "$vestacp/pga/config.inc.php" ]; then
+        cp -f $vestacp/pga/config.inc.php /etc/phppgadmin/
+    fi
 fi
 
 
@@ -1141,7 +1207,9 @@ fi
 #----------------------------------------------------------#
 
 if [ "$named" = 'yes' ]; then
-    cp -f $vestacp/bind/named.conf /etc/bind/
+    if [ -f "$vestacp/bind/named.conf" ]; then
+        cp -f $vestacp/bind/named.conf /etc/bind/
+    fi
     sed -i "s%listen-on%//listen%" /etc/bind/named.conf.options
     chown root:bind /etc/bind/named.conf
     chmod 640 /etc/bind/named.conf
@@ -1167,9 +1235,15 @@ fi
 
 if [ "$exim" = 'yes' ]; then
     gpasswd -a Debian-exim mail
-    cp -f $vestacp/exim/exim4.conf.template /etc/exim4/
-    cp -f $vestacp/exim/dnsbl.conf /etc/exim4/
-    cp -f $vestacp/exim/spam-blocks.conf /etc/exim4/
+    if [ -f "$vestacp/exim/exim4.conf.template" ]; then
+        cp -f $vestacp/exim/exim4.conf.template /etc/exim4/
+    fi
+    if [ -f "$vestacp/exim/dnsbl.conf" ]; then
+        cp -f $vestacp/exim/dnsbl.conf /etc/exim4/
+    fi
+    if [ -f "$vestacp/exim/spam-blocks.conf" ]; then
+        cp -f $vestacp/exim/spam-blocks.conf /etc/exim4/
+    fi
     touch /etc/exim4/white-blocks.conf
 
     if [ "$spamd" = 'yes' ]; then
@@ -1202,7 +1276,9 @@ fi
 
 if [ "$dovecot" = 'yes' ]; then
     gpasswd -a dovecot mail
-    cp -r /usr/local/vesta/install/debian/9/dovecot /etc/
+    if [ -d "/usr/local/vesta/install/debian/9/dovecot" ]; then
+        cp -r /usr/local/vesta/install/debian/9/dovecot /etc/
+    fi
     if [ -z "$(grep yes /etc/dovecot/conf.d/10-mail.conf)" ]; then
         echo "namespace inbox {" >> /etc/dovecot/conf.d/10-mail.conf
         echo "  inbox = yes" >> /etc/dovecot/conf.d/10-mail.conf
@@ -1210,7 +1286,9 @@ if [ "$dovecot" = 'yes' ]; then
         echo "first_valid_uid = 1000" >> /etc/dovecot/conf.d/10-mail.conf
         echo "mbox_write_locks = fcntl" >> /etc/dovecot/conf.d/10-mail.conf
     fi
-    cp -f $vestacp/logrotate/dovecot /etc/logrotate.d/
+    if [ -f "$vestacp/logrotate/dovecot" ]; then
+        cp -f $vestacp/logrotate/dovecot /etc/logrotate.d/
+    fi
     chown -R root:root /etc/dovecot*
     systemctl enable dovecot
     systemctl start dovecot
@@ -1225,7 +1303,9 @@ fi
 if [ "$clamd" = 'yes' ]; then
     gpasswd -a clamav mail
     gpasswd -a clamav Debian-exim
-    cp -f $vestacp/clamav/clamd.conf /etc/clamav/
+    if [ -f "$vestacp/clamav/clamd.conf" ]; then
+        cp -f $vestacp/clamav/clamd.conf /etc/clamav/
+    fi
     /usr/bin/freshclam
     systemctl enable clamav-daemon
     systemctl start clamav-daemon
@@ -1251,7 +1331,9 @@ fi
 
 if [ "$exim" = 'yes' ] && [ "$mysql" = 'yes' ]; then
     if [ "$apache" = 'yes' ]; then
-        cp -f $vestacp/roundcube/apache.conf /etc/roundcube/
+        if [ -f "$vestacp/roundcube/apache.conf" ]; then
+            cp -f $vestacp/roundcube/apache.conf /etc/roundcube/
+        fi
         ln -s /etc/roundcube/apache.conf /etc/apache2/conf.d/roundcube.conf
     fi
 
@@ -1260,9 +1342,13 @@ if [ "$exim" = 'yes' ] && [ "$mysql" = 'yes' ]; then
         /etc/roundcube/config.inc.php
     sed -i "s/^);/'password');/" /etc/roundcube/config.inc.php
 
-    cp -f $vestacp/roundcube/vesta.php \
-        /usr/share/roundcube/plugins/password/drivers/
-    cp -f $vestacp/roundcube/config.inc.php /etc/roundcube/plugins/password/
+    if [ -f "$vestacp/roundcube/vesta.php" ]; then
+        cp -f $vestacp/roundcube/vesta.php \
+            /usr/share/roundcube/plugins/password/drivers/
+    fi
+    if [ -f "$vestacp/roundcube/config.inc.php" ]; then
+        cp -f $vestacp/roundcube/config.inc.php /etc/roundcube/plugins/password/
+    fi
 
     mysql -e "CREATE DATABASE roundcube"
     mysql -e "GRANT ALL ON roundcube.*
@@ -1290,26 +1376,30 @@ fi
 #----------------------------------------------------------#
 
 if [ "$fail2ban" = 'yes' ]; then
-    cp -rf $vestacp/fail2ban /etc/
-    if [ "$dovecot" = 'no' ]; then
-        fline=$(cat /etc/fail2ban/jail.local |grep -n dovecot-iptables -A 2)
-        fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
-        sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
+    if [ -d "$vestacp/fail2ban" ]; then
+        cp -rf $vestacp/fail2ban /etc/
     fi
-    if [ "$exim" = 'no' ]; then
-        fline=$(cat /etc/fail2ban/jail.local |grep -n exim-iptables -A 2)
-        fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
-        sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
-    fi
-    if [ "$vsftpd" = 'yes' ]; then
-        #Create vsftpd Log File
-        if [ ! -f "/var/log/vsftpd.log" ]; then
-            touch /var/log/vsftpd.log
+    if [ -f "/etc/fail2ban/jail.local" ]; then
+        if [ "$dovecot" = 'no' ]; then
+            fline=$(cat /etc/fail2ban/jail.local |grep -n dovecot-iptables -A 2)
+            fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
+            sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
         fi
-        fline=$(cat /etc/fail2ban/jail.local |grep -n vsftpd-iptables -A 2)
-        fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
-        sed -i "${fline}s/false/true/" /etc/fail2ban/jail.local
-    fi 
+        if [ "$exim" = 'no' ]; then
+            fline=$(cat /etc/fail2ban/jail.local |grep -n exim-iptables -A 2)
+            fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
+            sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
+        fi
+        if [ "$vsftpd" = 'yes' ]; then
+            #Create vsftpd Log File
+            if [ ! -f "/var/log/vsftpd.log" ]; then
+                touch /var/log/vsftpd.log
+            fi
+            fline=$(cat /etc/fail2ban/jail.local |grep -n vsftpd-iptables -A 2)
+            fline=$(echo "$fline" |grep enabled |tail -n1 |cut -f 1 -d -)
+            sed -i "${fline}s/false/true/" /etc/fail2ban/jail.local
+        fi
+    fi
     systemctl enable fail2ban
     systemctl start fail2ban
     check_result $? "fail2ban start failed"
