@@ -8,7 +8,7 @@
 #   RHEL 5, 6, 7
 #   CentOS 5, 6, 7
 #   Debian 7, 8
-#   Ubuntu 12.04 - 18.04
+#   Ubuntu 12.04 - 24.04
 #   Amazon Linux 2017
 #
 
@@ -40,15 +40,38 @@ fi
 
 # Detect OS
 case $(head -n1 /etc/issue | cut -f 1 -d ' ') in
-    Debian)     type="debian" ;;
-    Ubuntu)     type="ubuntu" ;;
-    Amazon)     type="amazon" ;;
-    *)          type="rhel" ;;
+    Debian)     
+        type="debian" 
+        ;;
+    Ubuntu)     
+        type="ubuntu"
+        # Get Ubuntu version
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            ubuntu_version="$VERSION_ID"
+        else
+            ubuntu_version=$(lsb_release -rs)
+        fi
+        echo "Detected Ubuntu version: $ubuntu_version"
+        ;;
+    Amazon)     
+        type="amazon" 
+        ;;
+    *)          
+        type="rhel" 
+        ;;
 esac
 
 # Check wget
 if [ -e '/usr/bin/wget' ]; then
-    wget http://vestacp.com/pub/vst-install-$type.sh -O vst-install-$type.sh
+    # For Ubuntu 22.04 or 24.04, use custom script
+    if [ "$type" = "ubuntu" ] && ([ "$ubuntu_version" = "22.04" ] || [ "$ubuntu_version" = "24.04" ]); then
+        wget https://raw.githubusercontent.com/waveban/vestacp/main/install/vst-install-ubuntu-2204.sh -O vst-install-$type.sh
+    else
+        # Default to official script for other versions
+        wget http://vestacp.com/pub/vst-install-$type.sh -O vst-install-$type.sh
+    fi
+    
     if [ "$?" -eq '0' ]; then
         bash vst-install-$type.sh $*
         exit
@@ -60,7 +83,14 @@ fi
 
 # Check curl
 if [ -e '/usr/bin/curl' ]; then
-    curl -O http://vestacp.com/pub/vst-install-$type.sh
+    # For Ubuntu 22.04 or 24.04, use custom script
+    if [ "$type" = "ubuntu" ] && ([ "$ubuntu_version" = "22.04" ] || [ "$ubuntu_version" = "24.04" ]); then
+        curl -o vst-install-$type.sh https://raw.githubusercontent.com/waveban/vestacp/main/install/vst-install-ubuntu-2204.sh
+    else
+        # Default to official script for other versions
+        curl -O http://vestacp.com/pub/vst-install-$type.sh
+    fi
+    
     if [ "$?" -eq '0' ]; then
         bash vst-install-$type.sh $*
         exit
