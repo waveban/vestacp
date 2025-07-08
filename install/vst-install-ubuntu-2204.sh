@@ -23,9 +23,12 @@ if [ -f /etc/os-release ]; then
     if [ "$release" = "22.04" ]; then
         codename="jammy"
         php_version="8.1"
+        repo_codename="jammy"
     elif [ "$release" = "24.04" ]; then
         codename="noble"
         php_version="8.3"
+        # Use jammy repo for noble since there's no noble repo yet
+        repo_codename="jammy"
     else
         echo "Error: This script is only for Ubuntu 22.04 and 24.04"
         exit 1
@@ -509,9 +512,10 @@ curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/shar
 echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/mainline/ubuntu/ $codename nginx" > $apt/nginx.list
 
 # Installing vesta repo
-echo "deb http://$RHOST/$codename/ $codename vesta" > $apt/vesta.list
+# Use repo_codename which is set to jammy for both 22.04 and 24.04
+echo "deb http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 curl -fsSL $CHOST/deb_signing.key | gpg --dearmor -o /usr/share/keyrings/vesta-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/vesta-archive-keyring.gpg] http://$RHOST/$codename/ $codename vesta" > $apt/vesta.list
+echo "deb [signed-by=/usr/share/keyrings/vesta-archive-keyring.gpg] http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 
 
 #----------------------------------------------------------#
