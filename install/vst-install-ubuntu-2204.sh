@@ -700,4 +700,31 @@ fi
 # Update system packages
 apt-get update
 
-# Disable
+# Disabling daemon autostart on apt-get install
+echo -e '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d
+chmod a+x /usr/sbin/policy-rc.d
+
+# Installing apt packages
+if [ "$release" = "24.04" ]; then
+    # For Ubuntu 24.04, use explicit focal target for VestaCP packages
+    echo "Installing packages for Ubuntu 24.04 using focal repositories..."
+    # Install non-VestaCP packages normally
+    non_vesta_software=$(echo "$software" | sed -e 's/vesta[^ ]* //g')
+    apt-get -y install $non_vesta_software
+    check_result $? "apt-get install non-vesta packages failed"
+    
+    # Install VestaCP packages from focal repository
+    vesta_software=$(echo "$software" | grep -o 'vesta[^ ]*')
+    for package in $vesta_software; do
+        apt-get -y install -t focal $package
+        check_result $? "apt-get install $package failed"
+    done
+else
+    # For Ubuntu 22.04, install all packages normally
+    echo "Installing packages for Ubuntu 22.04..."
+    apt-get -y install $software
+    check_result $? "apt-get install failed"
+fi
+
+# Restoring autostart policy
+rm -f /usr/sbin/policy-rc.d
