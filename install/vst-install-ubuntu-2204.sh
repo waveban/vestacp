@@ -23,12 +23,13 @@ if [ -f /etc/os-release ]; then
     if [ "$release" = "22.04" ]; then
         codename="jammy"
         php_version="8.1"
-        repo_codename="jammy"
+        # Use focal repo since there's no jammy repo
+        repo_codename="focal"
     elif [ "$release" = "24.04" ]; then
         codename="noble"
         php_version="8.3"
-        # Use jammy repo for noble since there's no noble repo yet
-        repo_codename="jammy"
+        # Use focal repo since there's no noble repo
+        repo_codename="focal"
     else
         echo "Error: This script is only for Ubuntu 22.04 and 24.04"
         exit 1
@@ -517,16 +518,12 @@ echo "deb http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 curl -fsSL $CHOST/deb_signing.key | gpg --dearmor -o /usr/share/keyrings/vesta-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/vesta-archive-keyring.gpg] http://$RHOST/$repo_codename/ $repo_codename vesta" > $apt/vesta.list
 
-# For Ubuntu 24.04, create a symbolic link from noble to jammy in the apt sources
-if [ "$release" = "24.04" ]; then
-    echo "Creating symbolic link from noble to jammy for VestaCP repository..."
-    # Remove any existing noble repository configuration
-    rm -f $apt/noble*
-    # Create a symbolic link from noble to jammy
-    ln -sf $apt/vesta.list $apt/vesta-noble.list
-    # Force apt to use the jammy repository for noble
-    echo "APT::Default-Release \"$repo_codename\";" > /etc/apt/apt.conf.d/01default-release
-fi
+# For Ubuntu 22.04 and 24.04, ensure we're using the focal repository
+echo "Using Ubuntu 20.04 (focal) repository for VestaCP on Ubuntu $release..."
+# Remove any existing repository configurations that might conflict
+rm -f $apt/noble* $apt/jammy*
+# Force apt to use the focal repository
+echo "APT::Default-Release \"$repo_codename\";" > /etc/apt/apt.conf.d/01default-release
 
 
 #----------------------------------------------------------#
