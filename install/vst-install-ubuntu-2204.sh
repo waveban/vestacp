@@ -49,7 +49,7 @@ software="nginx apache2 apache2-utils
     lsof mc mysql-client mysql-common mysql-server
     ntpdate php-cgi php-common php-curl php-fpm phpmyadmin php-mysql
     phppgadmin php-pgsql postgresql postgresql-contrib proftpd-basic quota
-    roundcube-core roundcube-mysql roundcube-plugins rrdtool rssh spamassassin
+    roundcube-core roundcube-mysql roundcube-plugins rrdtool spamassassin
     sudo vesta vesta-ioncube vesta-nginx vesta-php vesta-softaculous
     vim-common vsftpd webalizer whois zip net-tools"
 
