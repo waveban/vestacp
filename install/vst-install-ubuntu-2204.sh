@@ -1606,7 +1606,7 @@ if [ "$ssl" = 'yes' ]; then
 make_ssl=0
 host_ip=$(host $servername | head -n 1 | awk '{print $NF}')
 if [ "$host_ip" != "$pub_ip" ]; then
-    echo "***** PROBLEM: Hostname $servername is not pointing to your server (IP address $ip)"
+    echo "***** PROBLEM: Hostname $servername is not pointing to your server \(IP address $ip\)"
     echo "Without pointing your hostname to your IP, LetsEncrypt SSL will not be generated for your server hostname."
     echo "Try to setup an A record in your DNS, pointing your hostname $servername to IP address $ip and then press ENTER."
     echo "(or register ns1.$servername and ns2.$servername as DNS Nameservers and put those Nameservers on $servername domain)"
