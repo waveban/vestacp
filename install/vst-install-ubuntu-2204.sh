@@ -280,6 +280,9 @@ fi
 
 # Checking wget
 if [ ! -e '/usr/bin/wget' ]; then
+    # Remove any APT::Default-Release settings before installing wget
+    rm -f /etc/apt/apt.conf.d/*default-release*
+    apt-get update
     apt-get -y install wget
     check_result $? "Can't install wget"
 fi
@@ -299,8 +302,11 @@ for pkg in gnupg gnupg1 gnupg2; do
     fi
 done
 if [ -z "$gnupg_exist" ]; then
+    # Remove any APT::Default-Release settings before installing gnupg
+    rm -f /etc/apt/apt.conf.d/*default-release*
+    apt-get update
     apt-get -y install gnupg
-    check_result $? "apt-get install failed"
+    check_result $? "apt-get install gnupg failed"
 fi
 # Checking conflicts
 for pkg in exim4 mysql-server apache2 nginx vesta; do
